@@ -14,6 +14,8 @@ def eye_aspect_ratio(eye):
     C = math.dist((eye[0].x, eye[0].y), (eye[3].x, eye[3].y))
     return (A + B) / (2 * C)
 
+
+num_of_iterations = 0
 while True: 
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
@@ -44,18 +46,42 @@ while True:
             #print(x, y)
             cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
 
+        # left_eye_aspect_ratio = eye_aspect_ratio(left_eye)
+        # # left eye is closed
+        # if left_eye_aspect_ratio < 0.25: 
+        #     pyautogui.click()
+        #     pyautogui.sleep(2)
+        #     print("mouse clicked")
+
+        if num_of_iterations == 0: 
+            is_closed = False
+
         left_eye_aspect_ratio = eye_aspect_ratio(left_eye)
-        print(left_eye_aspect_ratio)
+        # left eye is closed
         if left_eye_aspect_ratio < 0.25: 
-            pyautogui.click()
-            pyautogui.sleep(2)
-            print("mouse clicked")
+            if is_closed == False: 
+                closed_start_time = time.time()
+            is_closed = True
+        else: 
+            if is_closed == True: 
+                closed_end_time = time.time()
+                blink_duration = closed_end_time - closed_start_time
+                print(blink_duration)
+
+                if blink_duration > 0.50: 
+                    pyautogui.click()
+                    pyautogui.sleep(2)
+                    print("mouse clicked")
+
+            is_closed = False
 
     cv2.imshow("Eye controlled mouse", image)
     
     key = cv2.waitKey(100)
     if key == 27: # Escape key
         break
+
+    num_of_iterations = num_of_iterations + 1
 camera.release()
 cv2.destroyAllWindows()
 
