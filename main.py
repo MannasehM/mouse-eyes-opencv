@@ -1,10 +1,19 @@
 import cv2
 import mediapipe
 import pyautogui
+import time
+import math
 
 face_mesh_landmarks = mediapipe.solutions.face_mesh.FaceMesh(refine_landmarks=True)
 camera = cv2.VideoCapture(0)
 screen_width, screen_height = pyautogui.size()
+
+def eye_aspect_ratio(eye):
+    A = math.dist((eye[1].x, eye[1].y), (eye[5].x, eye[5].y))
+    B = math.dist((eye[2].x, eye[2].y), (eye[4].x, eye[4].y))
+    C = math.dist((eye[0].x, eye[0].y), (eye[3].x, eye[3].y))
+    return (A + B) / (2 * C)
+
 while True: 
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
@@ -22,22 +31,22 @@ while True:
             x = int(landmark_point.x * window_width)
             y = int(landmark_point.y * window_height)
             #print(x, y)
-
             if id == 1: # if face exists
                 mouse_x = int((screen_width / window_width) * x)
                 mouse_y = int((screen_height / window_height) * y)
-                pyautogui.moveTo(mouse_x, mouse_y)
-            
+                #pyautogui.moveTo(mouse_x, mouse_y)
             cv2.circle(image, (x,y), radius=3, color=(0, 0, 255))
-            
-        left_eye = [one_face_landmark_points[145], one_face_landmark_points[159]] #145 and 159 are left eye points
+
+        left_eye = [one_face_landmark_points[33], one_face_landmark_points[160], one_face_landmark_points[158], one_face_landmark_points[133], one_face_landmark_points[153], one_face_landmark_points[144]]
         for landmark_point in left_eye:
             x = int(landmark_point.x * window_width)
             y = int(landmark_point.y * window_height)
             #print(x, y)
-            cv2.circle(image, (x,y), radius=3, color=(0, 255, 255))
-        # if left eye is closed
-        if (left_eye[0].y - left_eye[1].y < 0.01):
+            cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
+
+        left_eye_aspect_ratio = eye_aspect_ratio(left_eye)
+        print(left_eye_aspect_ratio)
+        if left_eye_aspect_ratio < 0.25: 
             pyautogui.click()
             pyautogui.sleep(2)
             print("mouse clicked")
