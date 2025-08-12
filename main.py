@@ -1,10 +1,10 @@
 import cv2
-import mediapipe
+import mediapipe as mp
 import pyautogui
 import time
 import math
 
-face_mesh_landmarks = mediapipe.solutions.face_mesh.FaceMesh(refine_landmarks=True)
+face_mesh_landmarks = mp.solutions.face_mesh.FaceMesh(refine_landmarks=True)
 camera = cv2.VideoCapture(0)
 screen_width, screen_height = pyautogui.size()
 
