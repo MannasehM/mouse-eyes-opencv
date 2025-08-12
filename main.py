@@ -46,13 +46,6 @@ while True:
             #print(x, y)
             cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
 
-        # left_eye_aspect_ratio = eye_aspect_ratio(left_eye)
-        # # left eye is closed
-        # if left_eye_aspect_ratio < 0.25: 
-        #     pyautogui.click()
-        #     pyautogui.sleep(2)
-        #     print("mouse clicked")
-
         if num_of_iterations == 0: 
             is_closed = False
 
@@ -70,7 +63,7 @@ while True:
 
                 if blink_duration > 0.50: 
                     pyautogui.click()
-                    pyautogui.sleep(2)
+                    pyautogui.sleep(1)
                     print("mouse clicked")
 
             is_closed = False
