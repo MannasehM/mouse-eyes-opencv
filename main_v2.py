@@ -74,8 +74,21 @@ def rotationMatrixToEulerAngles(R):
     # Convert from radians to degrees
     return np.array([math.degrees(x), math.degrees(y), math.degrees(z)])
 
-yaw_history   = deque(maxlen=10)
-pitch_history = deque(maxlen=10)
+
+# Settings
+SMOOTHING_WINDOW = 5  # Bigger = smoother but more delay
+HORIZ_SPEED = 2       # Adjust sensitivity
+VERT_SPEED = 1.5
+
+# Calibration variables
+is_calibrated = False
+calib_yaw = 0
+calib_pitch = 0
+
+# For smoothing
+yaw_history = deque(maxlen=SMOOTHING_WINDOW)
+pitch_history = deque(maxlen=SMOOTHING_WINDOW)
+
 num_of_iterations = 0
 while True: 
     _,image = camera.read()
@@ -119,23 +132,29 @@ while True:
             euler_angles = rotationMatrixToEulerAngles(rotation_matrix)
             roll, pitch, yaw = euler_angles # roll not needed
 
+            if not is_calibrated: 
+                cv2.putText(image, "Hold head still - Press 'c' to calibrate", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            else: 
+                yaw -= calib_yaw
+                pitch -= calib_pitch
+
             # Define sensitivity or scaling factors (tweak experimentally)
-            sensitivity_x = 20  # degrees to pixels ratio (example)
-            sensitivity_y = 20
+            # sensitivity_x = 20  # degrees to pixels ratio (example)
+            # sensitivity_y = 20
 
             # Map yaw and pitch to screen coordinates
-            center_x = screen_width / 2
-            center_y = screen_height / 2
+            # center_x = screen_width / 2
+            # center_y = screen_height / 2
             yaw_history.append(yaw)
             pitch_history.append(pitch)
             smoothed_yaw   = np.mean(yaw_history)
             smoothed_pitch = np.mean(pitch_history)
-            mouse_x = center_x + smoothed_pitch * sensitivity_x
-            mouse_y = center_y - smoothed_yaw * sensitivity_y
+            # mouse_x = center_x + smoothed_pitch * sensitivity_x
+            # mouse_y = center_y - smoothed_yaw * sensitivity_y
 
             # Clamp mouse_x and mouse_y to screen bounds
-            mouse_x = max(0, min(screen_width - 1, mouse_x))
-            mouse_y = max(0, min(screen_height - 1, mouse_y))
+            # mouse_x = max(0, min(screen_width - 1, mouse_x))
+            # mouse_y = max(0, min(screen_height - 1, mouse_y))
 
             print(f"smoothed_yaw: {smoothed_yaw}")
             # print(f"smoothed_pitch: {smoothed_pitch}")
@@ -143,10 +162,9 @@ while True:
             # print(f"mouse_y: {mouse_y}")
 
             # Move mouse
-            pyautogui.moveTo(mouse_x, mouse_y)
-
-
-
+            move_x = smoothed_yaw * HORIZ_SPEED
+            move_y = -smoothed_pitch * VERT_SPEED # negative so nodding down moves cursor down
+            pyautogui.moveRel(move_x, move_y) 
         
         # right_eye = one_face_landmark_points[474:478] #474-477 (478 not included) are right eye points
         # for id,landmark_point in enumerate(right_eye):
@@ -190,7 +208,16 @@ while True:
     cv2.imshow("Eye/head controlled mouse", image)
     
     key = cv2.waitKey(100)
+
+    # Press 'c' to calibrate
+    if key == ord('c'):
+        calib_yaw = yaw
+        calib_pitch = pitch
+        calibration_done = True
+        print(f"Calibrated: yaw={calib_yaw:.2f}, pitch={calib_pitch:.2f}")
+
     if key == 27: # Escape key
+        print("Pressed escape key. Closed windows.")
         break
 
     num_of_iterations = num_of_iterations + 1
