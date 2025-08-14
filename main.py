@@ -4,9 +4,16 @@ import pyautogui
 import time
 import math
 
+# mediapipe setup
 face_mesh_landmarks = mp.solutions.face_mesh.FaceMesh(refine_landmarks=True)
 camera = cv2.VideoCapture(0)
 screen_width, screen_height = pyautogui.size()
+
+# Blink detection settings
+EAR_THRESHOLD = 0.25
+BLINK_HOLD_TIME = 0.50
+is_closed = False
+closed_start_time = 0
 
 def eye_aspect_ratio(eye):
     A = math.dist((eye[1].x, eye[1].y), (eye[5].x, eye[5].y))
@@ -20,10 +27,27 @@ def get_all_face_landmark_points(image, face_mesh_landmarks):
     all_face_landmark_points = processed_image.multi_face_landmarks
     return all_face_landmark_points
 
-EAR_THRESHOLD = 0.25
-BLINK_HOLD_TIME = 0.50
+def detect_blink(eye):
+    global is_closed, closed_start_time
+    ear = eye_aspect_ratio(eye)
 
-num_of_iterations = 0
+    # if eye is closed
+    if ear < EAR_THRESHOLD: 
+        if is_closed == False: 
+            closed_start_time = time.time()
+        is_closed = True
+    else: 
+        if is_closed == True: 
+            closed_end_time = time.time()
+            blink_duration = closed_end_time - closed_start_time
+            print(blink_duration)
+
+            if blink_duration > BLINK_HOLD_TIME: 
+                pyautogui.click()
+                pyautogui.sleep(1)
+                print("mouse clicked")
+        is_closed = False
+
 while True: 
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
@@ -34,53 +58,34 @@ while True:
     if all_face_landmark_points: 
         one_face_landmark_points = all_face_landmark_points[0].landmark
 
-        right_eye = one_face_landmark_points[474:478] #474-477 (478 not included) are right eye points
+        # Right eye landmarks
+        right_eye = one_face_landmark_points[474:478]
+
         for id,landmark_point in enumerate(right_eye):
             x = int(landmark_point.x * window_width)
             y = int(landmark_point.y * window_height)
-            #print(x, y)
+            cv2.circle(image, (x,y), radius=3, color=(0, 0, 255))
             if id == 1: # if face exists
                 mouse_x = int((screen_width / window_width) * x)
                 mouse_y = int((screen_height / window_height) * y)
                 #pyautogui.moveTo(mouse_x, mouse_y)
-            cv2.circle(image, (x,y), radius=3, color=(0, 0, 255))
 
+        # Left eye landmarks
         left_eye = [one_face_landmark_points[33], one_face_landmark_points[160], one_face_landmark_points[158], one_face_landmark_points[133], one_face_landmark_points[153], one_face_landmark_points[144]]
+        
         for landmark_point in left_eye:
             x = int(landmark_point.x * window_width)
             y = int(landmark_point.y * window_height)
-            #print(x, y)
             cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
 
-        if num_of_iterations == 0: 
-            is_closed = False
-
-        left_eye_aspect_ratio = eye_aspect_ratio(left_eye)
-        # left eye is closed
-        if left_eye_aspect_ratio < EAR_THRESHOLD: 
-            if is_closed == False: 
-                closed_start_time = time.time()
-            is_closed = True
-        else: 
-            if is_closed == True: 
-                closed_end_time = time.time()
-                blink_duration = closed_end_time - closed_start_time
-                print(blink_duration)
-
-                if blink_duration > BLINK_HOLD_TIME: 
-                    pyautogui.click()
-                    pyautogui.sleep(1)
-                    print("mouse clicked")
-
-            is_closed = False
+        detect_blink(left_eye)
 
     cv2.imshow("Eye controlled mouse", image)
     
     key = cv2.waitKey(100)
     if key == 27: # Escape key
+        print("Pressed escape key. Closed windows.")
         break
-
-    num_of_iterations = num_of_iterations + 1
 camera.release()
 cv2.destroyAllWindows()
 
