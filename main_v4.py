@@ -28,6 +28,10 @@ while True:
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
     window_height,window_width,_ = image.shape
+    # rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # processed_image = face_mesh_landmarks.process(rgb_image)
+    # all_face_landmark_points = processed_image.multi_face_landmarks
 
     all_face_landmark_points = get_all_face_landmark_points(image, face_mesh_landmarks)
 
