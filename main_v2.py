@@ -28,6 +28,13 @@ BLINK_HOLD_TIME = 0.50     # Minimum blink duration (seconds)
 # Smoothing for head movement
 SMOOTHING_WINDOW = 10  # Bigger = smoother but more lag
 
+# Sensitivity for head movement (tweak experimentally)
+SENSITIVITY_X = 30 # degrees to pixels ratio
+SENSITIVITY_Y = 15
+
+# Screen params
+SCREEN_W, SCREEN_H = pyautogui.size()
+
 # -------------------------------------------------------STATE VARIABLES-------------------------------------------------------
 
 # Blink detection state
@@ -68,11 +75,7 @@ camera_matrix = np.array([ # denoted as K and uses camera internal params for pr
     [0, focal_length, center[1]],
     [0, 0, 1]
 ], dtype="double")
-
 dist_coeffs = np.zeros((4,1)) # assuming no lens distortion
-
-# Screen params
-screen_width, screen_height = pyautogui.size()
 
 # -------------------------------------------------------FUNCTIONS-------------------------------------------------------
 
@@ -126,96 +129,93 @@ def rotationMatrixToEulerAngles(R):
     # Convert from radians to degrees
     return np.array([math.degrees(x), math.degrees(y), math.degrees(z)])
 
+def smooth_angles(yaw, pitch):
+    yaw_history.append(yaw)
+    pitch_history.append(pitch)
+    return np.mean(yaw_history), np.mean(pitch_history)
+
+def move_mouse(smoothed_yaw, smoothed_pitch):
+    screen_center_x = SCREEN_W / 2
+    screen_center_y = SCREEN_H / 2
+    mouse_x = screen_center_x + smoothed_yaw * SENSITIVITY_X
+    mouse_y = screen_center_y - smoothed_pitch * SENSITIVITY_Y
+    mouse_x = max(0, min(SCREEN_W - 1, mouse_x))
+    mouse_y = max(0, min(SCREEN_H - 1, mouse_y))
+    # pyautogui.moveTo(mouse_x, mouse_y)
+
+    # print(f"smoothed_yaw: {smoothed_yaw}")
+    # print(f"smoothed_pitch: {smoothed_pitch}")
+    # print(f"mouse_x: {mouse_x}")
+    # print(f"mouse_y: {mouse_y}")
+
+    # move_x = smoothed_yaw * HORIZ_SPEED
+    # move_y = -smoothed_pitch * VERT_SPEED # negative so nodding down moves cursor down
+    # pyautogui.moveRel(move_x, move_y) 
+
+def draw_nose_line(rotation_vector, translation_vector, camera_matrix, dist_coeffs, image, points_2D):
+    nose_end_point3D = np.array([[0, 0, 1000.0]])
+    nose_end_point2D, _ = cv2.projectPoints(
+        nose_end_point3D, rotation_vector, translation_vector, camera_matrix, dist_coeffs
+    )
+    p1 = (int(points_2D[0][0]), int(points_2D[0][1]))
+    p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+    cv2.line(image, p1, p2, (255, 0, 0), 2)
+
+def get_head_pose(one_face_landmark_points, image, model_points, camera_matrix, dist_coeffs):
+    points_2D = []
+    for id in LANDMARK_IDS:
+        landmark = one_face_landmark_points[id]
+        x = int(landmark.x * size[1])
+        y = int(landmark.y * size[0])
+        points_2D.append((x, y))
+        cv2.circle(image, (x, y), 3, (0, 0, 255))
+
+    # solvePnP requires nparray argument
+    points_2D = np.array(points_2D, dtype="double")
+
+    success, rotation_vector, translation_vector = cv2.solvePnP(
+        model_points, points_2D, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE
+    )
+
+    if not success: 
+        return None, None, None, None, None, None
+
+    rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+    roll, pitch, yaw = rotationMatrixToEulerAngles(rotation_matrix) # roll not needed
+
+    return rotation_vector, translation_vector, points_2D, roll, pitch, yaw
+
 # -------------------------------------------------------MAIN-------------------------------------------------------
 
 while True: 
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
     window_height,window_width,_ = image.shape
-
     all_face_landmark_points = all_face_landmark_points = get_all_face_landmark_points(image, face_mesh_landmarks)
 
     if all_face_landmark_points: 
         one_face_landmark_points = all_face_landmark_points[0].landmark
-        key_landmark_indices = []
-
-        for id in LANDMARK_IDS:
-            landmark = one_face_landmark_points[id]
-            x = int(landmark.x * size[1])
-            y = int(landmark.y * size[0])
-            key_landmark_indices.append((x, y))
-            cv2.circle(image, (x, y), 3, (0, 0, 255))
-
-        # solvePnP requires nparray array argument
-        key_landmark_indices = np.array(key_landmark_indices, dtype="double")
-
-        success, rotation_vector, translation_vector = cv2.solvePnP(
-            model_points, key_landmark_indices, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE
-        )
-
-        if success:
-            nose_end_point3D = np.array([[0, 0, 1000.0]])
-            nose_end_point2D, _ = cv2.projectPoints(
-                nose_end_point3D, rotation_vector, translation_vector, camera_matrix, dist_coeffs
-            )
-
-            p1 = (int(key_landmark_indices[0][0]), int(key_landmark_indices[0][1]))
-            p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
-
-            cv2.line(image, p1, p2, (255, 0, 0), 2)
-
-            rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-            euler_angles = rotationMatrixToEulerAngles(rotation_matrix)
-            roll, pitch, yaw = euler_angles # roll not needed
-
+        
+        rotation_vector, translation_vector, points_2D, roll, pitch, yaw = get_head_pose(one_face_landmark_points, image, model_points, camera_matrix, dist_coeffs)
+        if yaw is not None:
+            draw_nose_line(rotation_vector, translation_vector, camera_matrix, dist_coeffs, image, points_2D)
             if not is_calibrated: 
                 cv2.putText(image, "Hold head still - Press 'c' to calibrate", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             else:  
                 yaw -= calib_yaw
                 pitch -= calib_pitch
-
-                # Define sensitivity or scaling factors (tweak experimentally)
-                sensitivity_x = 30  # degrees to pixels ratio (example)
-                sensitivity_y = 15
-
-                # Map yaw and pitch to screen coordinates
-                center_x = screen_width / 2
-                center_y = screen_height / 2
-                yaw_history.append(yaw)
-                pitch_history.append(pitch)
-                smoothed_yaw   = np.mean(yaw_history)
-                smoothed_pitch = np.mean(pitch_history)
-                mouse_x = center_x + smoothed_yaw * sensitivity_x
-                mouse_y = center_y - smoothed_pitch * sensitivity_y
-
-                # Clamp mouse_x and mouse_y to screen bounds
-                mouse_x = max(0, min(screen_width - 1, mouse_x))
-                mouse_y = max(0, min(screen_height - 1, mouse_y))
-
-                pyautogui.moveTo(mouse_x, mouse_y)
-
-                print(f"smoothed_yaw: {smoothed_yaw}")
-                # print(f"smoothed_pitch: {smoothed_pitch}")
-                # print(f"mouse_x: {mouse_x}")
-                # print(f"mouse_y: {mouse_y}")
-
-            # Move mouse
-            # move_x = smoothed_yaw * HORIZ_SPEED
-            # move_y = -smoothed_pitch * VERT_SPEED # negative so nodding down moves cursor down
-            # pyautogui.moveRel(move_x, move_y) 
+                smoothed_yaw, smoothed_pitch = smooth_angles(yaw, pitch)
+                move_mouse(smoothed_yaw, smoothed_pitch)
 
         # Left eye landmarks
         left_eye = [one_face_landmark_points[33], one_face_landmark_points[160], one_face_landmark_points[158], one_face_landmark_points[133], one_face_landmark_points[153], one_face_landmark_points[144]]
-        
         for landmark_point in left_eye:
             x = int(landmark_point.x * window_width)
             y = int(landmark_point.y * window_height)
             cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
-
         detect_blink(left_eye)
 
     cv2.imshow("Eye/head controlled mouse", image)
-    
     key = cv2.waitKey(100)
 
     # Press 'c' to calibrate
@@ -224,7 +224,6 @@ while True:
         calib_pitch = pitch
         is_calibrated = True
         print(f"Calibrated: yaw={calib_yaw:.2f}, pitch={calib_pitch:.2f}")
-
     if key == 27: # Escape key
         print("Pressed escape key. Closed windows.")
         break
