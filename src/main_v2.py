@@ -215,7 +215,10 @@ while True:
             cv2.circle(image, (x,y), radius=3, color=(0, 255, 128))
         detect_blink(left_eye)
 
-    cv2.imshow("Eye/head controlled mouse", image)
+    window_name = "Eye/head controlled mouse"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.imshow(window_name, image)
+    cv2.resizeWindow(window_name, 160*4*2, 160*3*2)
     key = cv2.waitKey(100)
 
     # Press 'c' to calibrate

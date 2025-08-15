@@ -80,9 +80,12 @@ while True:
 
         detect_blink(left_eye)
 
-    cv2.imshow("Eye controlled mouse", image)
-    
+    window_name = "Eye controlled mouse"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.imshow(window_name, image)
+    cv2.resizeWindow(window_name, 160*4*2, 160*3*2)
     key = cv2.waitKey(100)
+
     if key == 27: # Escape key
         print("Pressed escape key. Closed windows.")
         break

@@ -14,6 +14,7 @@ camera = cv2.VideoCapture(0)
 while True: 
     _,image = camera.read()
     image = cv2.flip(image,flipCode=1)
+    window_height,window_width,_ = image.shape
 
     window_height,window_width,_ = image.shape
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
