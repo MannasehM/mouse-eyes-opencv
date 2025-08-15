@@ -6,7 +6,9 @@ import numpy as np
 import math
 from collections import deque
 
-# DO NOT CHANGE
+# -------------------------------------------------------CONSTANTS-------------------------------------------------------
+
+# 3D model points of key facial landmarks (for head pose estimation)
 model_points = np.array([
     (0.0, 0.0, 0.0),             # Nose tip
     (0.0, -330.0, -65.0),        # Chin
@@ -16,10 +18,34 @@ model_points = np.array([
     (150.0, -150.0, -125.0)      # Right mouth corner
 ])
 
-# DO NOT CHANGE
+# Mediapipe landmark indices of 2D image that match the model_points order
 LANDMARK_IDS = [1, 152, 263, 33, 287, 57]
 
-# data from mediapipe
+# Blink detection parameters
+EAR_THRESHOLD = 0.25       # Eye Aspect Ratio threshold
+BLINK_HOLD_TIME = 0.50     # Minimum blink duration (seconds)
+
+# Smoothing for head movement
+SMOOTHING_WINDOW = 10  # Bigger = smoother but more lag
+
+# -------------------------------------------------------STATE VARIABLES-------------------------------------------------------
+
+# Blink detection state
+is_closed = False
+closed_start_time = 0
+
+# Calibration state
+is_calibrated = False
+calib_yaw = 0
+calib_pitch = 0
+
+# Smoothing history buffers
+yaw_history = deque(maxlen=SMOOTHING_WINDOW)
+pitch_history = deque(maxlen=SMOOTHING_WINDOW)
+
+# -------------------------------------------------------INIT-------------------------------------------------------
+
+# Initialize mediapipe face mesh
 face_mesh_landmarks = mp.solutions.face_mesh.FaceMesh(
     static_image_mode=False,
     max_num_faces=1,
@@ -28,28 +54,28 @@ face_mesh_landmarks = mp.solutions.face_mesh.FaceMesh(
     min_tracking_confidence=0.5
 )
 
-# Camera internal parameters
+# OpenCV camera setup
 camera = cv2.VideoCapture(0)
-_,image = camera.read()
-size = image.shape
-print(size)
-focal_length = size[1] #width
-center = (size[1] / 2, size[0] / 2) 
+_, image = camera.read()
+size = image.shape  # (height, width, channels)
+print(f"Camera resolution: {size}")
 
-# denoted as K and uses camera internal params for projecting 3d scene onto 2d image
-camera_matrix = np.array([
+# Camera internal params
+focal_length = size[1] # width
+center = (size[1] / 2, size[0] / 2) 
+camera_matrix = np.array([ # denoted as K and uses camera internal params for projecting 3d scene onto 2d image
     [focal_length, 0, center[0]],
     [0, focal_length, center[1]],
     [0, 0, 1]
 ], dtype="double")
 
-# no distortion (in camera lens) assumed
-dist_coeffs = np.zeros((4,1)) 
+dist_coeffs = np.zeros((4,1)) # assuming no lens distortion
 
-# Screen parameters
+# Screen params
 screen_width, screen_height = pyautogui.size()
 
-# function for EAR to see how open an eye is
+# -------------------------------------------------------FUNCTIONS-------------------------------------------------------
+
 def eye_aspect_ratio(eye):
     A = math.dist((eye[1].x, eye[1].y), (eye[5].x, eye[5].y))
     B = math.dist((eye[2].x, eye[2].y), (eye[4].x, eye[4].y))
@@ -83,10 +109,9 @@ def detect_blink(eye):
                 print("mouse clicked")
         is_closed = False
 
-# function to convert rotation matrix to euler angles (roll, pitch, yaw)
 def rotationMatrixToEulerAngles(R):
+    # function to convert rotation matrix to euler angles (roll, pitch, yaw)
     sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
-    
     singular = sy < 1e-6
 
     if not singular:
@@ -101,23 +126,7 @@ def rotationMatrixToEulerAngles(R):
     # Convert from radians to degrees
     return np.array([math.degrees(x), math.degrees(y), math.degrees(z)])
 
-# Settings
-SMOOTHING_WINDOW = 10  # Bigger = smoother but more delay
-
-# Calibration variables
-is_calibrated = False
-calib_yaw = 0
-calib_pitch = 0
-
-# For smoothing
-yaw_history = deque(maxlen=SMOOTHING_WINDOW)
-pitch_history = deque(maxlen=SMOOTHING_WINDOW)
-
-# Blink detection settings
-EAR_THRESHOLD = 0.25
-BLINK_HOLD_TIME = 0.50
-is_closed = False
-closed_start_time = 0
+# -------------------------------------------------------MAIN-------------------------------------------------------
 
 while True: 
     _,image = camera.read()
