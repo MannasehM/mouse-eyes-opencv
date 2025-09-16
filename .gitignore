@@ -1,1 +1,3 @@
 venv/
+main_versions/
+__pycache__/

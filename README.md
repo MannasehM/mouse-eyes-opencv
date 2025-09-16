@@ -1,10 +1,42 @@
 # Eye & Head Controlled Mouse (Prototype)
-This is an experimental Python project that uses your head movement and blinks to control the mouse.
-It uses OpenCV, Mediapipe, and PyAutoGUI to detect your face landmarks, track head rotation, and detect blinks.
 
-## Features (Work in Progress)
-Head tracking → Move the mouse cursor by turning your head.
+## Overview
+A Python-based prototype that enables hands-free mouse control using head movements and blink detection. Designed for accessibility experiments and human-computer interaction studies.  
 
-Blink detection → Click by holding your eyes closed for a short time.
+### Features
+- **Head tracking:** Move the cursor by turning your head.  
+- **Blink detection:** Click by closing your left eye briefly.  
+- **Toggle control:** Press `h` to enable or disable head movement control.
+- **Sensitivity Slider:** Update mouse sensitivity using an on-screen slider.  
 
-Calibration → Press c to set a neutral head position.
+## Technologies
+- **Languages & Libraries:** Python, OpenCV, Mediapipe, PyAutoGUI, pynput, NumPy  
+- **Concepts:** Computer vision, facial landmark detection, head pose estimation
+
+## How To Run
+1. Clone the repository:
+   ```bash
+   git clone <your-repo-url>
+   cd <your-repo-folder>
+   ```
+2. Create and activate a virtual environment:
+
+    Windows: 
+    ```bash
+    python -m venv venv
+    venv\Scripts\activate
+    ```
+
+    Mac/Linux: 
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+3. Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4. Run the program:
+    ```bash
+    python src/main.py
+    ```
